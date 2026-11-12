@@ -1,7 +1,7 @@
 // キャンバス上のボタン。タップでもキーボード（フォーカス移動 + 決定）でも押せる。
 import { INK, fancyText, fillRoundRect, gradV, roundRect, text, textWidth, type Ctx } from '../render/draw.ts';
 
-export type ButtonStyle = 'primary' | 'normal' | 'dark' | 'gold' | 'small' | 'close' | 'pause';
+export type ButtonStyle = 'primary' | 'normal' | 'dark' | 'gold' | 'small' | 'close' | 'pause' | 'link';
 
 export interface Button {
   id: string;
@@ -128,6 +128,12 @@ export function drawButton(ctx: Ctx, b: Button, look: ButtonLook): void {
       ctx.fill();
       fillRoundRect(ctx, -9, -9, 6.5, 18, 2, '#ffffff');
       fillRoundRect(ctx, 2.5, -9, 6.5, 18, 2, '#ffffff');
+      break;
+    case 'link':
+      // 目立たせない、下線つきの小さな文字
+      text(ctx, b.label, 0, 0, { size: 11, weight: 700, color: 'rgba(255,255,255,0.5)' });
+      ctx.fillStyle = 'rgba(255,255,255,0.35)';
+      ctx.fillRect(x + 2, y + b.h - 2.5, b.w - 4, 1);
       break;
     case 'close':
       // 広告の「✕」。わざと小さく、目立たなくしてある

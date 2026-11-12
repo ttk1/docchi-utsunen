@@ -59,7 +59,9 @@ const SHARE_URL = 'https://x.com/intent/tweet';
  * 指を離したときに実行するボタン。別のタブを開く・クリップボードに書くといった操作は、
  * ブラウザが「利用者の操作」と認めたときしか通らず、指で触れた瞬間（pointerdown）はまだ認められないため
  */
-const ON_RELEASE: readonly string[] = ['copy', 'share'];
+const ON_RELEASE: readonly string[] = ['copy', 'share', 'source'];
+/** 「ソースコード」で開く、このゲームのリポジトリ */
+const SOURCE_URL = 'https://github.com/ttk1/docchi-utsunen';
 /** デモの字幕「あああああ」を出す埋まり度の割合 */
 const DEMO_PANIC_RATIO = 0.9;
 
@@ -317,6 +319,9 @@ ${this.pageUrl()}`).then(
         break;
       case 'share':
         this.shareResult();
+        break;
+      case 'source':
+        window.open(SOURCE_URL, '_blank', 'noopener,noreferrer');
         break;
       default:
         if (id.startsWith('buy')) this.shopAction(id);

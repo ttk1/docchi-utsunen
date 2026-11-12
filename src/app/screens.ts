@@ -19,6 +19,8 @@ export const FAIL_SECONDS = 2;
 /** 社会人力がこれ未満なら、リザルトに「私の社会人力、低すぎ…？」と添える（よくある広告のパロディ） */
 export const LOW_POWER = 10000;
 export const LOW_POWER_LINE = '私の社会人力、低すぎ…？';
+/** ソースコードへのリンクの文字。リザルトの隅に、目立たない大きさで置く */
+const SOURCE_LABEL = 'ソースコード';
 /** 結果を貼るときに添えるハッシュタグ */
 export const HASHTAG = '#どっち撃つねん';
 /** この WAVE に届いたら、リザルトに「上位 1%（当社調べ）」と添える。煽り文句「99% の人が WAVE 5 に届かない」の伏線回収 */
@@ -67,6 +69,8 @@ export function resultButtons(): Button[] {
     { id: 'copy', x: 278, y: 786, w: 192, h: 56, label: '結果をコピー', style: 'normal' },
     { id: 'title', x: 70, y: 862, w: 120, h: 40, label: 'タイトルへ', style: 'normal' },
     { id: 'continue', x: 204, y: 862, w: 266, h: 40, label: `${GEM}${CONTINUE_COST} でコンティニュー`, style: 'gold' },
+    // 表には出さず、リザルトの隅にひっそり置く
+    { id: 'source', x: 456, y: 940, w: 74, h: 16, label: SOURCE_LABEL, style: 'link' },
   ];
 }
 
