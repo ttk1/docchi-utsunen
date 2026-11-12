@@ -1,4 +1,4 @@
-/* 画面に収まる最大の 9:16 でキャンバスを置き、余白は暗い色で埋める */
+/* 画面に収まる最大の 9:16 でキャンバスを置き、余白にはゲームの画面をぼかした背景を敷く */
 html,
 body {
   margin: 0;
@@ -16,18 +16,38 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+html {
+  /* 背景の絵が描かれるまでの色。ゲームの夜空に近い色にしておく */
+  background: radial-gradient(ellipse at center, #1b2548 0%, #0a0f24 55%, #05070f 100%);
+}
+
 body {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* 横長の画面では左右が余るので、真っ黒ではなく、ゲームの夜空に近い色でなじませる */
-  background: radial-gradient(ellipse at center, #1b2548 0%, #0a0f24 55%, #05070f 100%);
+  /* 後ろに敷いた背景（#backdrop）が見えるよう、body は塗らない */
+  background: none;
 }
 
-canvas {
+#game {
   display: block;
   touch-action: none;
   box-shadow: 0 0 60px rgba(0, 0, 0, 0.6);
+}
+
+/*
+ * 余白に敷く背景。ゲームの画面を小さく写したもの（main.ts の drawBackdrop）を、画面いっぱいに引き伸ばしてぼかす。
+ * ぼかすと縁が透けるので、少し大きくして縁を画面の外へ出す
+ */
+#backdrop {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: -1;
+  filter: blur(18px);
+  transform: scale(1.12);
+  pointer-events: none;
 }
 
 /* スマホを横にすると画面が小さくなるので、縦向きをすすめる */

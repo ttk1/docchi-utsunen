@@ -1,7 +1,7 @@
 // キャンバス上のボタン。タップでもキーボード（フォーカス移動 + 決定）でも押せる。
 import { INK, fancyText, fillRoundRect, gradV, roundRect, text, textWidth, type Ctx } from '../render/draw.ts';
 
-export type ButtonStyle = 'primary' | 'normal' | 'gold' | 'small' | 'close' | 'pause';
+export type ButtonStyle = 'primary' | 'normal' | 'dark' | 'gold' | 'small' | 'close' | 'pause';
 
 export interface Button {
   id: string;
@@ -104,6 +104,11 @@ export function drawButton(ctx: Ctx, b: Button, look: ButtonLook): void {
       slab(ctx, x, y, b.w, b.h, ring, '#ffffff', '#dfe5f0', '#8f99ae');
       text(ctx, b.label, 0, 1, { size: b.h * 0.38, weight: 900, color: INK, maxWidth: b.w - 20 });
       break;
+    case 'dark':
+      // 外へ貼りに行くボタン。白いボタンの並びの中で目に留まるよう、黒い板にする
+      slab(ctx, x, y, b.w, b.h, ring, '#4a5370', '#1a1f30', '#05070f');
+      text(ctx, b.label, 0, 1, { size: b.h * 0.38, weight: 900, color: '#ffffff', maxWidth: b.w - 20 });
+      break;
     case 'gold':
       slab(ctx, x, y, b.w, b.h, ring, '#fff3a0', '#ffb400', '#b87900');
       text(ctx, b.label, 0, 1, { size: b.h * 0.42, weight: 900, color: INK, maxWidth: b.w - 20 });
@@ -138,7 +143,7 @@ export function drawButton(ctx: Ctx, b: Button, look: ButtonLook): void {
   if (look.focused) {
     ctx.lineWidth = 3.5;
     ctx.strokeStyle = '#ffe066';
-    roundRect(ctx, x - 7, y - 7, b.w + 14, b.h + (b.style === 'primary' || b.style === 'normal' || b.style === 'gold' ? 20 : 14), ring + 7);
+    roundRect(ctx, x - 7, y - 7, b.w + 14, b.h + (b.style === 'primary' || b.style === 'normal' || b.style === 'dark' || b.style === 'gold' ? 20 : 14), ring + 7);
     ctx.stroke();
   }
   ctx.restore();

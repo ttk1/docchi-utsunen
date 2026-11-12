@@ -79,6 +79,9 @@ export const LOOK = {
   introTime: 3.6,
   /** 開始直後の案内を出しておく時間 */
   guideTime: 10,
+  /** 最初の強化を取るまで、ランクアップのブロックに「撃って壊すと強くなる！」と添える。この秒数を過ぎたら出さない。ブロックがこの奥行きより遠いうちは下から、近づいたら上から指す */
+  firstBlockHintTime: 45,
+  firstBlockHintZ: 0.62,
   /** 敵を倒したときのひとこと（「既読」など）を、次に出すまであける秒数。うるさくならないよう、数の多い敵（未読通知、迷惑メール）は長くあける */
   defeatWordGap: 8,
   defeatWordGapCommon: 20,
@@ -346,6 +349,8 @@ export class View {
   enemyIntro: { kind: EnemyKind; start: number } | null = null;
   /** 遊び方のひとこと（会心の説明）を出すか。デモでは出さない（タイトルの文字と重なるため） */
   tips = true;
+  /** 抜けば記録更新になるスコア。遊んでいる最中に抜いた瞬間、ひとこと知らせる。0 なら知らせない（まだ記録がない、デモ） */
+  recordToBeat = 0;
   /** 画面の揺れと、画面全体が光る演出を止めるか（OS の「視差効果を減らす」に従う） */
   calm = false;
   private readonly rnd: () => number;
@@ -371,6 +376,11 @@ export class View {
     this.updateVacation(s);
     this.updateWave(s);
     if (s.score > this.lastScore) this.scoreAt = this.time;
+    if (this.recordToBeat > 0 && Math.floor(s.score) > this.recordToBeat && !s.over) {
+      this.recordToBeat = 0;
+      this.toast('praise', 'ハイスコア更新！', W / 2, 300, 40, TONE.gold, 1.2);
+      this.sfx?.praise();
+    }
     this.lastScore = s.score;
     this.numbers = this.numbers.filter((n) => (n.age += dt) < LOOK.numberLife);
     this.rings = this.rings.filter((r) => (r.age += dt) < LOOK.ringLife);
@@ -645,7 +655,7 @@ export class View {
     // 開始直後は、上の案内に同じこと（真ん中に当てると会心）が書いてあり、敵の紹介も出ているので、説明は案内が消えてからにする
     if (!this.noCritYet || !this.tips || this.time < LOOK.guideTime) return;
     this.noCritYet = false;
-    this.toast('praise', `会心！ 真ん中に当てるとダメージ ${AIM.critMult} 倍`, W / 2, 300, 30, TONE.gold, 1.8);
+    this.toast('praise', `会心！ 真ん中に当てるとダメージ ${AIM.critMult} 倍`, W / 2, 300, 26, TONE.gold, 1.8);
   }
 
   /** 破片を散らす */

@@ -2,11 +2,12 @@
 import { AIM, B, ENEMIES, RUSH_START } from '../core/balance.ts';
 import { bossName, dpsOf, waveOf, weaponName, weaponStage } from '../core/formulas.ts';
 import type { GameState } from '../core/state.ts';
-import { INK, circle, clamp, fancyText, fillRoundRect, gradV, roundRect, text, textWidth, type Ctx } from './draw.ts';
+import { INK, circle, clamp, fancyText, fillRoundRect, gradV, poly, roundRect, text, textWidth, type Ctx } from './draw.ts';
 import { formatComma, formatNumber } from './format.ts';
-import { W, xOf, yOf } from './projection.ts';
+import { W, kOf, xOf, yOf } from './projection.ts';
+import { canBreakInTime } from './scene.ts';
 import { drawSprite, drawSpriteCentered, sprite } from './sprites.ts';
-import { LOOK, enemySpriteId, type View } from './view.ts';
+import { LOOK, blockZ, enemySpriteId, type View } from './view.ts';
 
 /** 埋まり度がこの割合以上でゲージが赤く点滅する */
 export const DANGER_RATIO = 0.7;
@@ -205,6 +206,30 @@ function drawGuide(ctx: Ctx, s: GameState, v: View): void {
   ctx.globalAlpha = 1;
 }
 
+/**
+ * まだ 1 個も強化を取っていない人に、ランクアップのブロックを指して「撃つもの」だと教える。
+ * 広告を見て来た人は、箱が何なのかを知らないため。1 個取れたら、もう出さない
+ */
+function drawFirstBlockHint(ctx: Ctx, s: GameState, v: View): void {
+  if (s.got.rank > 0 || s.player.rank > 0 || s.t >= LOOK.firstBlockHintTime || s.over) return;
+  const b = s.blocks.find((o) => o.kind === 'rank');
+  if (!b) return;
+  // もう間に合わないブロックには出さない（「間に合わない」の表示と食い違うため）。撃っている最中は出したままにする
+  if (!canBreakInTime(s, b) && v.aim.blockId !== b.id) return;
+  const z = blockZ(s, b.passAt);
+  const k = kOf(z);
+  const x = clamp(xOf(b.u, z), 112, W - 112);
+  const bounce = Math.abs(Math.sin(v.time * 5)) * 6;
+  // 遠いうちは、上に出すと敵の紹介の札に重なるので、ブロックの下から指す。近づいたら上から指す
+  const below = z > LOOK.firstBlockHintZ;
+  const y = below ? yOf(z) + 30 + bounce : yOf(z) - 118 * k - 16 - bounce;
+  const dir = below ? -1 : 1;
+  fillRoundRect(ctx, x - 104, y - 16.5, 208, 32, 16, INK);
+  poly(ctx, [x - 9, y + dir * 14, x + 9, y + dir * 14, x, y + dir * 25], INK);
+  fillRoundRect(ctx, x - 101.5, y - 14, 203, 27, 13.5, '#ffd23f');
+  poly(ctx, [x - 6, y + dir * 12, x + 6, y + dir * 12, x, y + dir * 21], '#ffd23f');
+  text(ctx, '撃って壊すと強くなる！', x, y - 0.5, { size: 16, weight: 900, color: INK, maxWidth: 190 });
+}
 
 function drawWeaponBar(ctx: Ctx, s: GameState): void {
   const rank = s.player.rank;
@@ -238,6 +263,7 @@ export function drawHud(ctx: Ctx, s: GameState, v: View, o: HudOptions): void {
     drawWeaponBar(ctx, s);
     drawCenterTop(ctx, s, v, 150, false);
     drawGuide(ctx, s, v);
+    drawFirstBlockHint(ctx, s, v);
   }
   drawEnemyIntro(ctx, v);
   drawToasts(ctx, v);

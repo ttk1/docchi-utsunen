@@ -18,6 +18,7 @@ import {
   playButtons,
   resultButtons,
   resultText,
+  shareText,
   titleButtons,
   type ResultStats,
 } from './screens.ts';
@@ -31,6 +32,8 @@ type Mode = 'title' | 'play' | 'paused' | 'result' | 'shop';
 
 /** ゲームオーバーからリザルトを出すまでの秒数（7 章） */
 const RESULT_DELAY = 1.5;
+/** リザルトが出てから、ボタンが押せるようになるまでの秒数。負ける間際に画面を連打していた指で、うっかり押さないように */
+const RESULT_LOCK = 0.5;
 /** 画面が切り替わったあと、明るくなるまでの秒数 */
 const FADE_SECONDS = 0.35;
 /** 実解像度を上げる上限。高すぎると描画が重くなる */
@@ -40,8 +43,23 @@ const FINGER_INPUT = typeof matchMedia === 'function' && matchMedia('(pointer: c
 /** 指を置く場所の高さ。画面の高さに対する割合と、最低限の px */
 const FINGER_AREA_RATIO = 0.1;
 const FINGER_AREA_MIN = 64;
+/**
+ * 余白に敷く、ぼかした背景。小さく描いて CSS で引き伸ばすので、粗い絵で足りる。
+ * 毎フレーム写す必要はないので、間をあける（秒）
+ */
+const BACKDROP_WIDTH = 48;
+const BACKDROP_INTERVAL = 0.1;
+/** 背景を暗くする濃さ。ゲームの画面より目立たせない */
+const BACKDROP_DIM = 0.5;
 /** 1 フレームの経過時間の上限（秒）。タブが戻った直後などの飛びを捨てる */
 const MAX_FRAME = 0.1;
+/** 「X にポスト」で開く投稿画面 */
+const SHARE_URL = 'https://x.com/intent/post';
+/**
+ * 指を離したときに実行するボタン。別のタブを開く・クリップボードに書くといった操作は、
+ * ブラウザが「利用者の操作」と認めたときしか通らず、指で触れた瞬間（pointerdown）はまだ認められないため
+ */
+const ON_RELEASE: readonly string[] = ['copy', 'share'];
 /** デモの字幕「あああああ」を出す埋まり度の割合 */
 const DEMO_PANIC_RATIO = 0.9;
 
@@ -61,6 +79,9 @@ function createSession(demo: boolean, sfx: Synth | null): Session {
 class App {
   private readonly canvas: HTMLCanvasElement;
   private readonly ctx: CanvasRenderingContext2D;
+  /** 余白（PC の左右、縦長のスマホの上下）に敷く、ゲームの画面をぼかした背景 */
+  private readonly backdrop: HTMLCanvasElement;
+  private backdropAt = -1;
   private readonly synth = new Synth(loadSound());
   private highScore = loadHighScore();
   private mode: Mode = 'title';
@@ -74,6 +95,8 @@ class App {
   private focus = -1;
   private overAge = 0;
   private caption: { label: string; until: number } | null = null;
+  /** 押されたあと、指を離すのを待っているボタン（ON_RELEASE） */
+  private pressOnRelease: string | null = null;
   private demoPanicked = false;
   private closePressedAt = -10;
   private result: ResultStats | null = null;
@@ -95,8 +118,9 @@ class App {
   private inGameLayout = false;
   private message: { label: string; until: number } | null = null;
 
-  constructor(canvas: HTMLCanvasElement) {
+  constructor(canvas: HTMLCanvasElement, backdrop: HTMLCanvasElement) {
     this.canvas = canvas;
+    this.backdrop = backdrop;
     this.ctx = canvas.getContext('2d')!;
     this.resize();
     window.addEventListener('resize', () => this.resize());
@@ -108,7 +132,7 @@ class App {
     // 余白（キャンバスの外の黒い部分）に触れても狙えるよう、画面全体で受ける
     window.addEventListener('pointerdown', (e) => this.onPointer(e));
     // iOS は指を離したときの操作でないと音を出せないことがあるので、離したときにも有効化を試みる
-    for (const type of ['pointerup', 'touchend'] as const) window.addEventListener(type, () => this.synth.unlock());
+    for (const type of ['pointerup', 'touchend'] as const) window.addEventListener(type, () => this.onRelease());
     // ページの拡大・スクロール・長押しメニューを止める
     for (const type of ['touchstart', 'touchmove', 'gesturestart', 'dblclick', 'contextmenu'] as const) {
       // 取り消せない出来事（画面の置き方が変わった直後のタッチなど）で preventDefault を呼ぶと、ブラウザがエラーを出すので確かめてから呼ぶ
@@ -158,6 +182,7 @@ class App {
     this.message = null;
     this.banner = null;
     this.session = createSession(false, this.synth);
+    this.session.view.recordToBeat = this.highScore;
     this.synth.resume();
     this.synth.startBgm();
   }
@@ -199,24 +224,35 @@ class App {
     this.synth.click();
   }
 
+  /** 結果を貼るときに添える、このページの URL */
+  private pageUrl(): string {
+    return `${location.origin}${location.pathname}`;
+  }
+
   private copyResult(): void {
     if (!this.result) return;
-    const label = resultText(this.result);
-    // コピーする文字列には、遊べる場所の URL を添える（画面に出すときは添えない）
-    const shared = `${label}
-${location.origin}${location.pathname}`;
     const show = (m: string): void => {
       this.message = { label: m, until: this.time + 2.5 };
     };
+    // クリップボードが使えない環境では、結果そのものを画面に出す
+    const fallback = resultText(this.result);
     const clip = navigator.clipboard;
     if (!clip) {
-      show(label);
+      show(fallback);
       return;
     }
-    clip.writeText(shared).then(
+    clip.writeText(`${shareText(this.result)}
+${this.pageUrl()}`).then(
       () => show('コピーしました'),
-      () => show(label),
+      () => show(fallback),
     );
+  }
+
+  /** 結果を書き込んだ投稿画面を、別のタブで開く。投稿するかどうかは、開いた先で本人が決める */
+  private shareResult(): void {
+    if (!this.result) return;
+    const query = `text=${encodeURIComponent(shareText(this.result))}&url=${encodeURIComponent(this.pageUrl())}`;
+    window.open(`${SHARE_URL}?${query}`, '_blank', 'noopener,noreferrer');
   }
 
   // ---------------------------------------------------------------- 入力
@@ -230,7 +266,7 @@ ${location.origin}${location.pathname}`;
       case 'paused':
         return pauseButtons(this.synth.isEnabled);
       case 'result':
-        return resultButtons();
+        return this.time - this.resultAt < RESULT_LOCK ? [] : resultButtons();
       case 'shop':
         return shopButtons(this.shopStep);
     }
@@ -273,6 +309,9 @@ ${location.origin}${location.pathname}`;
         break;
       case 'copy':
         this.copyResult();
+        break;
+      case 'share':
+        this.shareResult();
         break;
       default:
         if (id.startsWith('buy')) this.shopAction(id);
@@ -371,6 +410,13 @@ ${location.origin}${location.pathname}`;
     }
   }
 
+  private onRelease(): void {
+    this.synth.unlock();
+    const id = this.pressOnRelease;
+    this.pressOnRelease = null;
+    if (id) this.press(id);
+  }
+
   private onPointer(e: PointerEvent): void {
     e.preventDefault();
     // 指で触れた瞬間は、ブラウザがまだ「利用者の操作」と認めないので、音の有効化は離したとき（pointerup）に任せる。
@@ -382,7 +428,11 @@ ${location.origin}${location.pathname}`;
     const b = hitButton(this.buttons(), x, y);
     if (b) {
       this.focus = -1;
-      this.press(b.id);
+      if (ON_RELEASE.includes(b.id)) {
+        this.pressOnRelease = b.id;
+      } else {
+        this.press(b.id);
+      }
     } else {
       // ボタン以外は、押した横位置を狙う
       this.aimAt(x);
@@ -490,6 +540,28 @@ ${location.origin}${location.pathname}`;
     // もう片方が 1 画素ぶん足りず、端の 1 行が塗られないまま残る（差は 0.2% 未満で、見た目には分からない）
     this.scaleX = this.canvas.width / W;
     this.scaleY = this.canvas.height / H;
+    // 背景は、画面と同じ縦横比の小さな絵にする
+    this.backdrop.width = BACKDROP_WIDTH;
+    this.backdrop.height = Math.max(1, Math.round((BACKDROP_WIDTH * vh) / vw));
+    this.backdropAt = -1;
+  }
+
+  /**
+   * 余白に、ゲームの画面を引き伸ばして暗くした絵を敷く（縦長の動画を横長の画面で流すときの、あの見た目）。
+   * 真っ暗な余白より画面になじみ、時間帯や危険の赤も余白に映る。ぼかしは CSS で掛ける
+   */
+  private drawBackdrop(): void {
+    if (this.time - this.backdropAt < BACKDROP_INTERVAL) return;
+    this.backdropAt = this.time;
+    const { width: bw, height: bh } = this.backdrop;
+    const { width: gw, height: gh } = this.canvas;
+    const g = this.backdrop.getContext('2d');
+    if (!g || gw === 0 || gh === 0) return;
+    // 余白を残さないよう、はみ出す向きに合わせて引き伸ばす
+    const scale = Math.max(bw / gw, bh / gh);
+    g.drawImage(this.canvas, (bw - gw * scale) / 2, (bh - gh * scale) / 2, gw * scale, gh * scale);
+    g.fillStyle = `rgba(5,7,15,${BACKDROP_DIM})`;
+    g.fillRect(0, 0, bw, bh);
   }
 
   private render(): void {
@@ -504,6 +576,7 @@ ${location.origin}${location.pathname}`;
       this.ctx.fillStyle = `rgba(8,10,24,${fade})`;
       this.ctx.fillRect(0, 0, W, H);
     }
+    this.drawBackdrop();
   }
 
   private renderScreen(): void {
@@ -561,6 +634,6 @@ ${location.origin}${location.pathname}`;
 
 initSprites();
 initScene();
-const app = new App(document.getElementById('game') as HTMLCanvasElement);
+const app = new App(document.getElementById('game') as HTMLCanvasElement, document.getElementById('backdrop') as HTMLCanvasElement);
 // 開発時だけ、ブラウザのコンソールや確認用スクリプトから状態を触れるようにする
 if (import.meta.env.DEV) (window as unknown as { app: App }).app = app;

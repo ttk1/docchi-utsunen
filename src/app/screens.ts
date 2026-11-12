@@ -17,6 +17,11 @@ export const CAPTION_SECONDS = 1.5;
 export const FAIL_SECONDS = 2;
 /** 社会人力がこれ未満なら、リザルトに「私の社会人力、低すぎ…？」と添える（よくある広告のパロディ） */
 export const LOW_POWER = 10000;
+export const LOW_POWER_LINE = '私の社会人力、低すぎ…？';
+/** 結果を貼るときに添えるハッシュタグ */
+export const HASHTAG = '#どっち撃つねん';
+/** この WAVE に届いたら、リザルトに「上位 1%（当社調べ）」と添える。煽り文句「99% の人が WAVE 5 に届かない」の伏線回収 */
+export const TOP_WAVE = 5;
 /** リザルトのスコアが 0 から数え上がる時間 */
 const COUNT_UP_SECONDS = 0.8;
 
@@ -57,9 +62,10 @@ export function pauseButtons(soundOn: boolean): Button[] {
 export function resultButtons(): Button[] {
   return [
     { id: 'retry', x: 70, y: 690, w: 400, h: 70, label: 'もう一度', style: 'primary' },
-    { id: 'title', x: 70, y: 786, w: 192, h: 56, label: 'タイトルへ', style: 'normal' },
+    { id: 'share', x: 70, y: 786, w: 192, h: 56, label: 'X にポスト', style: 'dark' },
     { id: 'copy', x: 278, y: 786, w: 192, h: 56, label: '結果をコピー', style: 'normal' },
-    { id: 'continue', x: 110, y: 862, w: 320, h: 40, label: `${GEM}${CONTINUE_COST} でコンティニュー`, style: 'gold' },
+    { id: 'title', x: 70, y: 862, w: 120, h: 40, label: 'タイトルへ', style: 'normal' },
+    { id: 'continue', x: 204, y: 862, w: 266, h: 40, label: `${GEM}${CONTINUE_COST} でコンティニュー`, style: 'gold' },
   ];
 }
 
@@ -217,7 +223,8 @@ export function drawResult(ctx: Ctx, r: ResultStats, message: string | null, age
     const pulse = 1 + 0.06 * Math.sin(age * 9);
     fancyText(ctx, 'NEW RECORD!', W / 2, 308, { size: 23 * pulse, top: '#fff3a0', bottom: '#ff9d1a', stroke: '#b3200f', strokeWidth: 5, shadow: 0 });
   } else {
-    text(ctx, `ハイスコア ${formatComma(r.highScore)}`, W / 2, 308, { size: 18, weight: 900, color: '#6b7280' });
+    // 記録まであとどれだけかを添える（もう 1 回の理由になる）
+    text(ctx, `ハイスコア ${formatComma(r.highScore)}（あと ${formatComma(r.highScore - r.score)}）`, W / 2, 308, { size: 18, weight: 900, color: '#6b7280', maxWidth: 400 });
   }
 
   const divider = (y: number): void => {
@@ -230,6 +237,15 @@ export function drawResult(ctx: Ctx, r: ResultStats, message: string | null, age
   };
   divider(332);
   row('到達 WAVE', String(r.wave), 354);
+  if (r.wave >= TOP_WAVE) {
+    // 広告の札のように、少し傾けて出す
+    ctx.save();
+    ctx.translate(300, 354);
+    ctx.rotate(-0.035);
+    fillRoundRect(ctx, -84, -13, 168, 26, 13, '#fff1c2');
+    text(ctx, '上位 1%（当社調べ）', 0, 0.5, { size: 14, weight: 900, color: '#b3200f', maxWidth: 156 });
+    ctx.restore();
+  }
   row('最終武器', r.weapon, 388);
   row('取った強化', `${r.review.taken} / ${r.review.offered}（両取り ${r.review.doubles}）`, 422);
   row('会心', `${Math.round(r.review.critRate * 100)}%`, 456);
@@ -244,7 +260,7 @@ export function drawResult(ctx: Ctx, r: ResultStats, message: string | null, age
     ctx.translate(160, 586);
     ctx.rotate(-0.035);
     fillRoundRect(ctx, -104, -13, 208, 26, 13, '#ffe3e3');
-    text(ctx, '私の社会人力、低すぎ…？', 0, 0.5, { size: 15, weight: 900, color: '#d81b1b', maxWidth: 196 });
+    text(ctx, LOW_POWER_LINE, 0, 0.5, { size: 15, weight: 900, color: '#d81b1b', maxWidth: 196 });
     ctx.restore();
   }
   ctx.fillStyle = '#dfe4ee';
@@ -281,9 +297,18 @@ export function drawResult(ctx: Ctx, r: ResultStats, message: string | null, age
   }
 }
 
-/** 「結果をコピー」でクリップボードに入れる文字列（仕様書 2.6 節） */
+/** 結果を 1 行にまとめた文字列（仕様書 2.6 節）。クリップボードが使えないときは、これを画面に出す */
 export function resultText(r: ResultStats): string {
   return `どっち撃つねん｜WAVE ${r.wave}・スコア ${formatComma(r.score)}・社会人力 ${formatPower(r.power)}`;
+}
+
+/**
+ * 「結果をコピー」と「X にポスト」で使う文面。称号と、探せるようにハッシュタグを添える。URL は呼ぶ側が足す。
+ * 社会人力が低いときは、リザルトと同じ「私の社会人力、低すぎ…？」を添える
+ */
+export function shareText(r: ResultStats): string {
+  const title = `称号「${r.review.title}」`;
+  return [resultText(r), r.power < LOW_POWER ? `${LOW_POWER_LINE} ${title}` : title, HASHTAG].join('\n');
 }
 
 /** 本編の開始直後に、画面の上のほうへ出すひとこと。left は消えるまでの秒数 */
