@@ -166,6 +166,11 @@ class App {
     this.startDemo();
   }
 
+  /** 後ろでデモが流れている画面か（タイトルと、タイトルから開いたショップ）。表示類とキャンバスの置き方を、タイトルのものにする */
+  private get onTitle(): boolean {
+    return this.mode === 'title' || (this.mode === 'shop' && this.shopFrom === 'title');
+  }
+
   private startDemo(): void {
     this.session = createSession(true, null);
     this.overAge = 0;
@@ -385,6 +390,12 @@ ${this.pageUrl()}`).then(
   }
 
   private onPointerMove(e: PointerEvent): void {
+    // マウスがボタンの上にあるときは、押せることをカーソルで示す
+    if (e.pointerType === 'mouse') {
+      const rect = this.canvas.getBoundingClientRect();
+      const y = ((e.clientY - rect.top) / rect.height) * H;
+      document.body.style.cursor = hitButton(this.buttons(), this.logicalX(e), y) ? 'pointer' : '';
+    }
     if (e.pointerType === 'mouse' || e.buttons > 0 || e.pressure > 0) this.aimAt(this.logicalX(e));
   }
 
@@ -521,7 +532,7 @@ ${this.pageUrl()}`).then(
     // 指で遊ぶ縦長の画面では、キャンバスを上に寄せて、下に指を置く場所をあける
     // （真ん中に置くと、指がプレイヤーと武器の表示を隠してしまう）。余りが少なければ、キャンバスを少し縮めて確保する
     // タイトルでは指を置く場所は要らないので、PC と同じく真ん中に置く
-    this.inGameLayout = this.mode !== 'title';
+    this.inGameLayout = !this.onTitle;
     const finger = FINGER_INPUT && vh > vw && this.inGameLayout;
     const reserve = finger ? Math.max(FINGER_AREA_MIN, Math.round(vh * FINGER_AREA_RATIO)) : 0;
     const scale = Math.min(vw / W, (vh - reserve) / H);
@@ -541,6 +552,8 @@ ${this.pageUrl()}`).then(
     this.scaleX = this.canvas.width / W;
     this.scaleY = this.canvas.height / H;
     // 背景は、画面と同じ縦横比の小さな絵にする
+    // キャンバスと足場で画面が埋まっているとき（スマホで遊んでいる最中）は、見えないので描かない
+    this.backdrop.hidden = cssW >= vw && (finger || cssH >= vh);
     this.backdrop.width = BACKDROP_WIDTH;
     this.backdrop.height = Math.max(1, Math.round((BACKDROP_WIDTH * vh) / vw));
     this.backdropAt = -1;
@@ -551,7 +564,7 @@ ${this.pageUrl()}`).then(
    * 真っ暗な余白より画面になじみ、時間帯や危険の赤も余白に映る。ぼかしは CSS で掛ける
    */
   private drawBackdrop(): void {
-    if (this.time - this.backdropAt < BACKDROP_INTERVAL) return;
+    if (this.backdrop.hidden || this.time - this.backdropAt < BACKDROP_INTERVAL) return;
     this.backdropAt = this.time;
     const { width: bw, height: bh } = this.backdrop;
     const { width: gw, height: gh } = this.canvas;
@@ -568,7 +581,7 @@ ${this.pageUrl()}`).then(
     // 指を置く場所の「なぞる溝」は、遊んでいる間だけ出す（CSS の body.finger.playing）
     document.body.classList.toggle('playing', this.mode === 'play');
     // タイトルとそれ以外で、キャンバスの置き方が変わる（指を置く場所をあけるかどうか）
-    if ((this.mode !== 'title') !== this.inGameLayout) this.resize();
+    if (!this.onTitle !== this.inGameLayout) this.resize();
     this.renderScreen();
     // 画面が切り替わった直後は、暗いところから明るくする
     const fade = 1 - (this.time - this.fadeAt) / FADE_SECONDS;
@@ -584,7 +597,7 @@ ${this.pageUrl()}`).then(
     ctx.setTransform(this.scaleX, 0, 0, this.scaleY, 0, 0);
     const { state, view } = this.session;
     drawScene(ctx, state, view);
-    drawHud(ctx, state, view, { demo: this.mode === 'title' });
+    drawHud(ctx, state, view, { demo: this.onTitle });
     const drawButtons = (): void => {
       const closeAge = this.time - this.closePressedAt;
       this.buttons().forEach((b, i) => {
