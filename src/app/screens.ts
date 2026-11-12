@@ -7,6 +7,7 @@ import { AIM } from '../core/balance.ts';
 import type { Review } from './review.ts';
 import { CONTINUE_COST, GEM } from './shop.ts';
 import { PLAY_MARK, type Button } from './ui.ts';
+import { APP_VERSION } from './version.ts';
 
 /** 煽り文句。4 秒ごとに切り替える */
 export const TAUNTS = ['未読 999+ 件、さばけますか？', '99% の人が WAVE 5 に届かない', '月曜日が来る前に倒せ', '社会人力 53 万以上ならクリア可能', '簡単そうに見えますよね？', '締切もリボ払いも撃てばいい', '3 分遊ぶと止まらなくなる'] as const;
@@ -170,12 +171,19 @@ export function drawTitle(ctx: Ctx, t: TitleLook): void {
   text(ctx, 'SALE', 0, 0.5, { size: 12, weight: 900, color: '#fff7a8' });
   ctx.restore();
   drawHand(ctx, t.time);
+  // 右下は、ボタンをつつく指の絵に隠れるので、左下に出す
+  drawVersion(ctx, 8, 953, 'left');
   if (t.closeAge >= 0 && t.closeAge < 1.2) {
     ctx.globalAlpha = clamp((1.2 - t.closeAge) / 0.3, 0, 1);
     fillRoundRect(ctx, 366, 46, 158, 32, 9, 'rgba(14,18,36,0.92)');
     text(ctx, '閉じられません', 445, 63, { size: 17, weight: 900 });
     ctx.globalAlpha = 1;
   }
+}
+
+/** 版の目印を、じゃまにならない大きさで出す。公開ページが新しい版に切り替わったかを見分けるため */
+function drawVersion(ctx: Ctx, x: number, y: number, align: CanvasTextAlign): void {
+  text(ctx, `ver. ${APP_VERSION}`, x, y, { size: 10, weight: 700, align, color: 'rgba(255,255,255,0.6)' });
 }
 
 export function drawPause(ctx: Ctx): void {
@@ -195,6 +203,7 @@ export function drawPause(ctx: Ctx): void {
     text(ctx, key, 94, 696 + i * 38, { size: 17, weight: 900, align: 'left', color: '#ffe066' });
     text(ctx, what, 446, 696 + i * 38, { size: 16, weight: 800, align: 'right', color: '#e8eefc', maxWidth: 230 });
   });
+  drawVersion(ctx, W / 2, 858, 'center');
 }
 
 /** age はリザルトを出してからの秒数 */
