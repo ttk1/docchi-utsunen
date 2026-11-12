@@ -367,6 +367,7 @@ export class View {
     this.time += dt;
     this.updatePlayer(dt, s);
     this.updateEnemies(dt, s);
+    this.pruneEnemies(s);
     this.updateBlocks(s);
     this.updateAim(s);
     this.updateSnipe(s);
@@ -454,6 +455,13 @@ export class View {
       v.x = xOf(v.u, v.z);
       v.y = yOf(v.z);
     }
+  }
+
+  /** 列にもういない敵の、見た目の状態を捨てる。ふつうは倒した出来事で消すが、取りこぼしても溜まり続けないようにする */
+  private pruneEnemies(s: GameState): void {
+    if (this.enemies.size <= s.enemies.length) return;
+    const alive = new Set(s.enemies.map((e) => e.id));
+    for (const id of this.enemies.keys()) if (!alive.has(id)) this.enemies.delete(id);
   }
 
   private updateBlocks(s: GameState): void {

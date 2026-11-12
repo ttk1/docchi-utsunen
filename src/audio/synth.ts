@@ -121,9 +121,12 @@ export class Synth implements Sfx {
     for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
   }
 
-  private get live(): AudioContext | null {
-    return this.ctx instanceof AudioContext ? this.ctx : null;
-  }
+  /**
+   * 実際に音を出している context（確認用に渡された context では null）。
+   * `instanceof AudioContext` では見分けない。音の機能がないブラウザや、接頭辞つきの名前（webkitAudioContext）しかない
+   * 古いブラウザでは、AudioContext という名前そのものがなく、触れただけで例外になるため
+   */
+  private live: AudioContext | null = null;
 
   /** 最初のタップやキー入力で呼ぶ。ブラウザは操作があるまで音を出せない */
   unlock(): void {
@@ -131,7 +134,8 @@ export class Synth implements Sfx {
     if (!this.ctx) {
       const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!AC) return;
-      this.build(new AC());
+      this.live = new AC();
+      this.build(this.live);
     }
     if (this.live?.state === 'suspended') void this.live.resume();
   }
