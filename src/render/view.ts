@@ -239,6 +239,8 @@ interface BlockSpot {
 /** 2 台目の相棒（AI）が来たときの言葉 */
 const AI_BUDDY_LABEL = 'AI 相棒 参上！';
 const AI_BUDDY_LINE = '「お手伝いできることはありますか？」';
+/** 有給休暇を取ったときのひとこと。何が止まるのか（新しく来る敵だけ。道に残っている敵と、ボスと、罠で湧く敵は別）を伝える */
+const VACATION_LINE = `新しい敵が ${B.vacation} 秒来ない`;
 /** エナドリ（金のランクアップ）を取ったときのひとこと */
 const ENERGY_LINE = '元気の前借り';
 const EFFECT_LABEL: Readonly<Record<BlockKind, string>> = {
@@ -755,6 +757,7 @@ export class View {
           this.toast('effect', e.kind === 'buddy' && this.buddiesGot === 2 ? AI_BUDDY_LABEL : EFFECT_LABEL[e.kind], W / 2, 352, e.kind === 'trap' ? 46 : 38, EFFECT_TONE[e.kind], 0.9);
           if (e.kind === 'buddy' && this.buddiesGot === 2) this.toast('aside', AI_BUDDY_LINE, W / 2, 398, 22, TONE.white, 1.8);
           if (e.kind === 'gold') this.toast('aside', ENERGY_LINE, W / 2, 398, 22, TONE.white, 1.5);
+          if (e.kind === 'vacation') this.toast('aside', VACATION_LINE, W / 2, 398, 22, TONE.white, 1.5);
           this.sfx?.blockBreak();
           if (e.kind === 'trap') {
             if (f) this.burst(f.x, f.y, 14, 'rgba(220,40,40,0.8)', 120, 0.9, 16, -60);

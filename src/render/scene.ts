@@ -654,7 +654,8 @@ function drawLaneOverlays(ctx: Ctx, s: GameState, v: View): void {
   if (s.t < s.vacationUntil) {
     band(ctx, -AIM.border, AIM.border, 0, 1, 'rgba(120,220,255,0.22)');
     const left = s.vacationUntil - s.t;
-    fancyText(ctx, `有給休暇中 あと ${left.toFixed(1)} 秒`, CENTER_X, 610, { size: 19, top: '#ffffff', bottom: '#bff4ff', stroke: '#0b5e78' });
+    // 止まるのは新しく来る敵だけで、道に残っている敵はそのまま、と分かるように書く
+    fancyText(ctx, `有給休暇中（新着なし） あと ${left.toFixed(1)} 秒`, CENTER_X, 610, { size: 19, top: '#ffffff', bottom: '#bff4ff', stroke: '#0b5e78' });
   }
   if (v.bombWaveAt >= 0) {
     const p = (v.time - v.bombWaveAt) / LOOK.bombWaveTime;

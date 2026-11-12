@@ -16,21 +16,23 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
-html {
-  /* 背景の絵が描かれるまでの色。ゲームの夜空に近い色にしておく */
-  background: radial-gradient(ellipse at center, #1b2548 0%, #0a0f24 55%, #05070f 100%);
-}
-
 body {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* 後ろに敷いた背景（#backdrop）が見えるよう、body は塗らない */
-  background: none;
+  /*
+   * ページの背景色は、濃紺の単色で必ず持たせる（html と body の両方）。
+   * スマホのブラウザは、ステータスバーやツールバーのまわりをこの色で塗る。色がない（透明やグラデーションだけ）と、白で塗られる。
+   * グラデーションは、ぼかした背景（#backdrop）が描かれるまでの下地
+   */
+  background: #05070f radial-gradient(ellipse at center, #1b2548 0%, #0a0f24 55%, #05070f 100%);
 }
 
+/* 重ね順は、下から: ページの背景色、ぼかした背景（0）、ゲーム（1）、足場や案内の文字（2） */
 #game {
   display: block;
+  position: relative;
+  z-index: 1;
   touch-action: none;
   box-shadow: 0 0 60px rgba(0, 0, 0, 0.6);
 }
@@ -44,7 +46,7 @@ body {
   inset: 0;
   width: 100%;
   height: 100%;
-  z-index: -1;
+  z-index: 0;
   filter: blur(18px);
   transform: scale(1.12);
   pointer-events: none;
@@ -55,6 +57,7 @@ body {
   body::after {
     content: '縦向きにすると大きく遊べます';
     position: fixed;
+    z-index: 2;
     left: 12px;
     bottom: 10px;
     font: 700 12px sans-serif;
@@ -70,6 +73,7 @@ body {
     content: 'マウスを動かして狙う\A ← →　A D でも動けます\A Esc か P で一時停止';
     white-space: pre;
     position: fixed;
+    z-index: 2;
     left: 24px;
     bottom: 20px;
     font: 700 13px/1.9 sans-serif;
@@ -91,6 +95,7 @@ body.finger {
 body.finger::before {
   content: '';
   position: fixed;
+  z-index: 2;
   left: calc(50% - var(--game-width, 100%) / 2);
   width: var(--game-width, 100%);
   bottom: 0;
@@ -112,6 +117,7 @@ body.finger::before {
 body.finger.playing::after {
   content: 'ここをなぞって動かす';
   position: fixed;
+  z-index: 2;
   left: calc(50% - var(--game-width, 100%) * 0.43);
   width: calc(var(--game-width, 100%) * 0.86);
   bottom: calc((var(--finger-area, 0px) - 40px) / 2);

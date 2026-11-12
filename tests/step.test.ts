@@ -266,6 +266,29 @@ describe('ブロック', () => {
     expect(s.fill).toBe(6 + 2.5 * B.trapCount);
   });
 
+  it('有給休暇の効果中でも、罠で湧く未読通知と、ボスは出る（止まるのは通常の出現だけ）', () => {
+    const s = createGame(3);
+    s.nextRowAt = 1e9;
+    // ボス戦のウェーブ（WAVE 5）のラッシュ直前まで進める
+    s.tick = Math.round((4 * B.waveLength + 14.5) / DT);
+    s.t = s.tick * DT;
+    putBlock(s, 'vacation');
+    step(s, RIGHT);
+    expect(s.t).toBeLessThan(s.vacationUntil);
+    const before = s.enemies.length;
+    putBlock(s, 'trap');
+    const trapEvents = step(s, RIGHT);
+    expect(trapEvents.some((e) => e.type === 'enemySpawn' && e.kind === 'notice')).toBe(true);
+    expect(s.enemies.length).toBe(before + B.trapCount);
+    // 効果が続いているあいだに、ボスが出る
+    const events: GameEvent[] = [];
+    while (s.t < 4 * B.waveLength + 15.2) events.push(...step(s, 0));
+    expect(s.t).toBeLessThan(s.vacationUntil);
+    expect(events.some((e) => e.type === 'bossSpawn')).toBe(true);
+    // 通常の出現は、そのあいだ 1 回もない
+    expect(events.some((e) => e.type === 'enemySpawn')).toBe(false);
+  });
+
   it('有給休暇は 6 秒間敵を止め、効果中に重ねると 6 秒延びる', () => {
     const s = createGame(3);
     s.nextRowAt = 1e9;
