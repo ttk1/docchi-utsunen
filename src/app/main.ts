@@ -53,8 +53,8 @@ const BACKDROP_INTERVAL = 0.1;
 const BACKDROP_DIM = 0.5;
 /** 1 フレームの経過時間の上限（秒）。タブが戻った直後などの飛びを捨てる */
 const MAX_FRAME = 0.1;
-/** 「X にポスト」で開く投稿画面 */
-const SHARE_URL = 'https://x.com/intent/post';
+/** 「X にポスト」で開く投稿画面（X の公式の文書にある形。text と url を渡せる） */
+const SHARE_URL = 'https://x.com/intent/tweet';
 /**
  * 指を離したときに実行するボタン。別のタブを開く・クリップボードに書くといった操作は、
  * ブラウザが「利用者の操作」と認めたときしか通らず、指で触れた瞬間（pointerdown）はまだ認められないため
@@ -481,7 +481,8 @@ ${this.pageUrl()}`).then(
   }
 
   /** デモの出来事に合わせて字幕を出す（仕様書 5.3 節） */
-  private demoCaptions(events: readonly GameEvent[], demoQuit: boolean): void {
+  private demoCaptions(events: readonly GameEvent[], demoQuit: boolean, demoMiss: boolean): void {
+    if (demoMiss) this.say('そこじゃない！！');
     if (demoQuit) this.say('なぜそっちを撃つ！？');
     for (const e of events) {
       if (e.type === 'blockBreak' && e.kind === 'trap') this.say('それは罠！！');
@@ -498,8 +499,8 @@ ${this.pageUrl()}`).then(
     this.time += dt;
     const s = this.session.state;
     if (this.mode === 'title') {
-      const { events, demoQuit } = this.session.advance(dt);
-      this.demoCaptions(events, demoQuit);
+      const { events, demoQuit, demoMiss } = this.session.advance(dt);
+      this.demoCaptions(events, demoQuit, demoMiss);
       if (s.over) {
         this.overAge += dt;
         if (this.overAge >= FAIL_SECONDS) this.startDemo();

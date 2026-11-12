@@ -345,20 +345,23 @@ class BlockOnly(Bot):
         b = first_of(g.blocks, lambda b: True)
         return b.u if b else g.p["BLOCK_COLS"][1]
 class Demo(Bot):
-    interval = 0.3; aim_interval = 0.45; aim_error = 0.12
+    interval = 0.3; aim_interval = 0.6; aim_error = 0.12; miss_rate = 0.3; miss_gap = 0.04
     def __init__(self, seed):
         super().__init__(seed); self.mode = "enemy"; self.quit = set()   # mode: "enemy" / ("x", 位置) / ("block", id)
+        self.missing = False                                              # 今、敵のすぐ横を狙って空振りしているか
     def decide(self, g):
         p = g.p; f = g.fill / g.cap
         if not g.blocks: self.mode = ("x", p["BLOCK_COLS"][1]) if f < 0.20 else "enemy"; return        # 規則1
         if g.rank == 0 and not g.missed.get("rank"):
             for b in g.blocks:
                 if b.kind == "rank": self.mode = ("block", b.id); return                                # 規則2
-        junk = first_of(g.blocks, lambda b: b.kind in ("trap", "hat"))
+        # 同じ列の手前に別のブロックがあるものは選ばない (撃つと手前のほうに当たり、取るつもりのない強化を取ってしまう)
+        front = lambda b: not any(o.col == b.col and o.pass_t < b.pass_t for o in g.blocks)
+        junk = first_of(g.blocks, lambda b: b.kind in ("trap", "hat") and front(b))
         if junk: self.mode = ("block", junk.id); return                                                 # 規則3
         for b in g.blocks:
             if b.hp / b.maxhp < 0.12: self.quit.add(b.id)
-        wanted = first_of(g.blocks, lambda b: b.kind != "bomb" and b.id not in self.quit)
+        wanted = first_of(g.blocks, lambda b: b.kind != "bomb" and b.id not in self.quit and front(b))
         current = self.mode[1] if isinstance(self.mode, tuple) and self.mode[0] == "block" else 0
         if current in self.quit: self.mode = "enemy"; return                                            # 規則5
         if not wanted: self.mode = "enemy"; return                                                      # 規則4
@@ -370,7 +373,13 @@ class Demo(Bot):
         if self.mode == "enemy":
             if g.t >= self.next_aim - 1e-9:
                 self.next_aim = g.t + self.aim_interval; self.aim = aim_oldest(g) + (self.rnd() * 2 - 1) * self.aim_error
+                # ときどき、いちばん古い敵のすぐ横を狙って空振りする
+                self.missing = bool(g.enemies) and self.rnd() < self.miss_rate
+                if self.missing:
+                    e = g.enemies[0]; side = -1 if self.rnd() < 0.5 else 1
+                    self.aim = e.u + side * (e.hw + g.p["BEAM_HALF"] + self.miss_gap)
             return self.aim
+        self.missing = False
         if self.mode[0] == "x": return self.mode[1]
         b = find_block(g, self.mode[1])
         return b.u if b else g.x
@@ -381,9 +390,9 @@ class Expert(Bot): lo = 0.80; hi = 0.95; interval = 0.15; aim_interval = 0.08; a
 
 BOTS = dict(demo=Demo, enemy_only=EnemyOnly, block_only=BlockOnly, timid=Timid, casual=Casual, good=Good, expert=Expert)
 # spec 9.2 の合格範囲 (生存時間の中央値, 秒)
-PASS = dict(demo=(60, 100), enemy_only=(100, 130), block_only=(30, 110), timid=(120, 170), casual=(205, 285), good=(295, 375), expert=(335, 420))
+PASS = dict(demo=(50, 80), enemy_only=(100, 130), block_only=(30, 110), timid=(120, 170), casual=(205, 285), good=(295, 375), expert=(335, 420))
 LONGEST = 600
-DEMO_RANGE = (40, 125)
+DEMO_RANGE = (35, 100)
 
 def run(bot_name, seed, p=P, tmax=1500.0):
     g = Game(seed, p); b = BOTS[bot_name](seed)

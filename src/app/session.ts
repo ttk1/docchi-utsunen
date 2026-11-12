@@ -12,6 +12,8 @@ export interface Advance {
   events: GameEvent[];
   /** デモ AI が「あと少し」でブロックを離れた（規則 5） */
   demoQuit: boolean;
+  /** デモ AI が、敵のすぐ横を狙って空振りし始めた */
+  demoMiss: boolean;
 }
 
 export class Session {
@@ -25,6 +27,7 @@ export class Session {
   private acc = 0;
   private blockTicks = 0;
   private lastRule = 0;
+  private lastMissing = false;
 
   constructor(seed: number, demo: boolean, sfx: Sfx | null) {
     this.state = createGame(seed);
@@ -43,6 +46,7 @@ export class Session {
   advance(dt: number): Advance {
     const events: GameEvent[] = [];
     let demoQuit = false;
+    let demoMiss = false;
     this.acc = Math.min(this.acc + dt, MAX_STEPS_PER_FRAME * DT);
     while (this.acc >= DT) {
       this.acc -= DT;
@@ -51,6 +55,8 @@ export class Session {
         this.aim = this.bot.act(this.state);
         if (this.bot.rule === 5 && this.lastRule !== 5) demoQuit = true;
         this.lastRule = this.bot.rule;
+        if (this.bot.missing && !this.lastMissing) demoMiss = true;
+        this.lastMissing = this.bot.missing;
       }
       for (const e of step(this.state, this.aim)) {
         events.push(e);
@@ -60,6 +66,6 @@ export class Session {
     }
     this.view.handle(events);
     this.view.update(dt, this.state);
-    return { events, demoQuit };
+    return { events, demoQuit, demoMiss };
   }
 }

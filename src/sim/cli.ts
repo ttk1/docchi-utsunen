@@ -10,7 +10,7 @@ const RUNS = 100;
 
 /** 9.2 節: 生存時間の中央値（秒）の合格範囲 */
 const PASS: Record<BotName, readonly [number, number]> = {
-  demo: [60, 100],
+  demo: [50, 80],
   enemy_only: [100, 130],
   block_only: [30, 110],
   timid: [120, 170],
@@ -21,7 +21,7 @@ const PASS: Record<BotName, readonly [number, number]> = {
 /** 9.2 節: 全試行を通して、これを超える生存がないこと（秒） */
 const LONGEST_ALLOWED = 600;
 /** 9.2 節: demo は 100 回中 90 回以上がこの範囲（秒）で終わること */
-const DEMO_RANGE = [40, 125] as const;
+const DEMO_RANGE = [35, 100] as const;
 const DEMO_MIN_RATIO = 0.9;
 
 function median(sorted: number[]): number {

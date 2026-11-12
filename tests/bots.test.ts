@@ -146,6 +146,56 @@ describe('デモ AI の 7 つの規則', () => {
     expect(decide(highFill)).toEqual({ aim: nearCentre, rule: 7 });
   });
 
+  it('同じ列の手前に別のブロックがある罠・帽子は選ばない（撃つと、手前の強化を取ってしまう）', () => {
+    const s = withFill(0.1);
+    s.player.rank = 1;
+    addBlock(s, 'rank', 0, { passAt: 5, row: 1 });
+    addBlock(s, 'hat', 0, { passAt: 8, row: 2 });
+    // 帽子はランクアップの後ろなので、規則 3 にはならない。手前のランクアップを、ふつうに狙う（そして、あと少しで見捨てる）
+    expect(decide(s)).toEqual({ aim: LEFT, rule: 7 });
+    // 手前に何もない列の帽子は、これまでどおり最優先で壊す
+    addBlock(s, 'hat', 1, { passAt: 8, row: 2 });
+    expect(decide(s)).toEqual({ aim: RIGHT, rule: 3 });
+  });
+
+  it('見捨てたブロックの後ろにあるブロックは狙わない（撃つと、見捨てたほうが壊れてしまう）', () => {
+    const s = withFill(0.1);
+    s.player.rank = 1;
+    addBlock(s, 'rank', 0, { passAt: 5, row: 1, hpRatio: 0.05 });
+    addBlock(s, 'gold', 0, { passAt: 8, row: 2 });
+    expect(decide(s)).toEqual({ aim: nearCentre, rule: 4 });
+  });
+
+  it('敵を狙うとき、ときどき敵のすぐ横を狙って空振りする', () => {
+    const offset = 0.13 + AIM.beamHalf + DEMO.missGap;
+    let misses = 0;
+    const runs = 200;
+    for (let seed = 0; seed < runs; seed++) {
+      const s = withFill(0.5);
+      addEnemy(s, 'notice', 0.1, 100);
+      const bot = createDemoBot(seed);
+      const aim = bot.act(s);
+      if (bot.missing) {
+        misses++;
+        // 弾の列が、敵にぎりぎり当たらない位置
+        expect(Math.abs(aim - 0.1)).toBeCloseTo(offset, 9);
+        expect(Math.abs(aim - 0.1)).toBeGreaterThan(0.13 + AIM.beamHalf);
+      } else {
+        expect(Math.abs(aim - 0.1)).toBeLessThanOrEqual(DEMO.aimError);
+      }
+    }
+    expect(misses / runs).toBeGreaterThan(DEMO.missRate - 0.1);
+    expect(misses / runs).toBeLessThan(DEMO.missRate + 0.1);
+  });
+
+  it('敵がいなければ、空振りはしない', () => {
+    for (let seed = 0; seed < 50; seed++) {
+      const bot = createDemoBot(seed);
+      bot.act(withFill(0.5));
+      expect(bot.missing).toBe(false);
+    }
+  });
+
   it('0.3 秒ごとにしか決め直さない', () => {
     const s = createGame(1);
     const bot = createDemoBot(7);
